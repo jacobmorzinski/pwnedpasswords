@@ -27,9 +27,17 @@ function Get-StringHash ([string] $String, $HashName = "SHA1") {
 }
 
 function Invoke-PwnedPasswords ([string] $prefix) {
-    # https://stackoverflow.com/questions/41618766/powershell-invoke-webrequest-fails-with-ssl-tls-secure-channel
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $response = Invoke-WebRequest "https://api.pwnedpasswords.com/range/${prefix}"
+    try {
+        $response = Invoke-WebRequest "https://api.pwnedpasswords.com/range/${prefix}"
+    }
+    catch [Net.WebException] {
+        # Write-Host $_.Exception.GetType().FullName
+        # https://stackoverflow.com/questions/41618766/powershell-invoke-webrequest-fails-with-ssl-tls-secure-channel
+        if ( $_.Exception.Status -eq [Net.WebExceptionStatus]::SecureChannelFailure ) {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+            $response = Invoke-WebRequest "https://api.pwnedpasswords.com/range/${prefix}"
+        }
+    }
 
     $matches = $response.Content -split [Environment]::NewLine
     return $matches
